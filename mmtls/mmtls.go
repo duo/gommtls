@@ -69,8 +69,14 @@ func (c *MMTLSClient) Handshake(host string) error {
 		return err
 	}
 
-	ch := newECDHEHello(&c.publicEcdh.PublicKey, &c.verifyEcdh.PublicKey)
-	//log.Debugf("ClientHello:\n%s", hex.Dump(ch.Serialize()))
+	var ch *clientHello
+	if c.Session != nil {
+		log.Info("1-RTT PSK handshake")
+		ch = NewPskHello(&c.publicEcdh.PublicKey, &c.verifyEcdh.PublicKey, &c.Session.tk.tickets[1])
+	} else {
+		log.Info("1-RTT ECDHE handshake")
+		ch = newECDHEHello(&c.publicEcdh.PublicKey, &c.verifyEcdh.PublicKey)
+	}
 	if err := c.sendClientHello(ch); err != nil {
 		return err
 	}

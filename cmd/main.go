@@ -15,8 +15,16 @@ func main() {
 
 	defer client.Close()
 
+	if session, err := mmtls.LoadSession("session"); err == nil {
+		client.Session = session
+	}
+
 	if err := client.Handshake("long.weixin.qq.com:80"); err != nil {
 		panic(err)
+	}
+
+	if client.Session != nil {
+		client.Session.Save("session")
 	}
 
 	if err := client.Noop(); err != nil {

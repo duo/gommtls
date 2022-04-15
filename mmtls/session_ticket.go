@@ -116,6 +116,32 @@ func (t *sessionTicket) serialize() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func (t *newSessionTicket) serialize() ([]byte, error) {
+	buf := &bytes.Buffer{}
+
+	if _, err := buf.Write([]byte{0x00, 0x00, 0x00, 0x00}); err != nil {
+		return nil, err
+	}
+	if err := buf.WriteByte(0x04); err != nil {
+		return nil, err
+	}
+	if err := buf.WriteByte(0x02); err != nil {
+		return nil, err
+	}
+
+	for _, v := range t.tickets {
+		vBytes, err := v.serialize()
+		if err != nil {
+			return nil, err
+		}
+		writeU32LenData(buf, vBytes)
+	}
+
+	data := buf.Bytes()
+	binary.BigEndian.PutUint32(data, uint32(len(data)-4))
+	return data, nil
+}
+
 func (t *newSessionTicket) export() ([]byte, error) {
 	earlyDataBuf := &bytes.Buffer{}
 

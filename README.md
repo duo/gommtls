@@ -8,5 +8,5 @@
 
 目前支持
 - [x] 1-RTT ECDHE
-- [ ] 1-RTT PSK
+- [x] 1-RTT PSK
 - [ ] 0-RTT PSK

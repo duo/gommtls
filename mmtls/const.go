@@ -9,6 +9,8 @@ import (
 const (
 	ProtocolVersion uint16 = 0xF104
 
+	TLS_PSK_WITH_AES_128_GCM_SHA256 uint16 = 0xA8
+
 	MagicAlert     uint8 = 0x15
 	MagicHandshake uint8 = 0x16
 	MagicRecord    uint8 = 0x17
