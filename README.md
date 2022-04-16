@@ -9,4 +9,4 @@
 目前支持
 - [x] 1-RTT ECDHE
 - [x] 1-RTT PSK
-- [ ] 0-RTT PSK
+- [x] 0-RTT PSK

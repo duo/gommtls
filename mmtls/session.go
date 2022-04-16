@@ -1,6 +1,9 @@
 package mmtls
 
-import "io/ioutil"
+import (
+	"bytes"
+	"io/ioutil"
+)
 
 type trafficKeyPair struct {
 	clientKey   []byte
@@ -14,19 +17,45 @@ type Session struct {
 	pskAccess  []byte
 	pskRefresh []byte
 	appKey     *trafficKeyPair
-	earlyKey   *trafficKeyPair
 }
 
 func (s *Session) Save(path string) error {
+	buf := &bytes.Buffer{}
+
+	if err := writeU16LenData(buf, s.pskAccess); err != nil {
+		return err
+	}
+	if err := writeU16LenData(buf, s.pskRefresh); err != nil {
+		return err
+	}
+
 	ticketBytes, err := s.tk.serialize()
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, ticketBytes, 0644)
+	buf.Write(ticketBytes)
+
+	return ioutil.WriteFile(path, buf.Bytes(), 0644)
 }
 
 func LoadSession(path string) (*Session, error) {
-	ticketBytes, err := ioutil.ReadFile(path)
+	sessionBytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	r := bytes.NewReader(sessionBytes)
+	pskAccess, err := readU16LenData(r)
+	if err != nil {
+		return nil, err
+	}
+
+	pskRefresh, err := readU16LenData(r)
+	if err != nil {
+		return nil, err
+	}
+
+	ticketBytes, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
@@ -37,6 +66,8 @@ func LoadSession(path string) (*Session, error) {
 	}
 
 	return &Session{
-		tk: ticket,
+		pskAccess:  pskAccess,
+		pskRefresh: pskRefresh,
+		tk:         ticket,
 	}, nil
 }

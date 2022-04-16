@@ -72,7 +72,7 @@ func (c *MMTLSClient) Handshake(host string) error {
 	var ch *clientHello
 	if c.Session != nil {
 		log.Info("1-RTT PSK handshake")
-		ch = NewPskHello(&c.publicEcdh.PublicKey, &c.verifyEcdh.PublicKey, &c.Session.tk.tickets[1])
+		ch = newPskOneHello(&c.publicEcdh.PublicKey, &c.verifyEcdh.PublicKey, &c.Session.tk.tickets[1])
 	} else {
 		log.Info("1-RTT ECDHE handshake")
 		ch = newECDHEHello(&c.publicEcdh.PublicKey, &c.verifyEcdh.PublicKey)
@@ -126,14 +126,13 @@ func (c *MMTLSClient) Handshake(host string) error {
 		c.hkdfExpand("expanded secret", c.handshakeHasher)).Read(expandedSecret)
 
 	// AppKey
-	appKey, _ := c.computeTrafficKey(
+	appKey, err := c.computeTrafficKey(
 		expandedSecret,
 		c.hkdfExpand("application data key expansion", c.handshakeHasher))
+	if err != nil {
+		return err
+	}
 	c.Session.appKey = appKey
-
-	// Store and reuse
-	earlyKey, _ := c.earlyDataKey(c.Session.pskAccess, c.Session.tk)
-	c.Session.earlyKey = earlyKey
 
 	// fully complete handshake
 	atomic.StoreInt32(&c.status, 1)
@@ -388,9 +387,7 @@ func (c *MMTLSClient) readRecord() (*mmtlsRecord, error) {
 	log.Debugf("Receive Packet Header(%d):\n%s", len(header), hex.Dump(header))
 	log.Debugf("Receive Packet payload(%d):\n%s", len(payload), hex.Dump(payload))
 
-	record := readRecord(append(header, payload...))
-
-	return record, nil
+	return readRecord(bytes.NewReader(append(header, payload...)))
 }
 
 func (c *MMTLSClient) computeEphemeralSecret(x, y, z *big.Int) []byte {
@@ -412,31 +409,6 @@ func (c *MMTLSClient) computeTrafficKey(shareKey, info []byte) (*trafficKeyPair,
 	pair.serverKey = trafficKey[16:32]
 	pair.clientNonce = trafficKey[32:44]
 	pair.serverNonce = trafficKey[44:]
-
-	return pair, nil
-}
-
-func (c *MMTLSClient) earlyDataKey(pskAccess []byte, st *newSessionTicket) (*trafficKeyPair, error) {
-	earlyDataHash := sha256.New()
-	data, err := st.export()
-	if err != nil {
-		return nil, err
-	}
-	if _, err := earlyDataHash.Write(data); err != nil {
-		return nil, err
-	}
-
-	trafficKey := make([]byte, 28)
-	if _, err := hkdf.Expand(sha256.New, pskAccess,
-		c.hkdfExpand("early data key expansion", earlyDataHash)).
-		Read(trafficKey); err != nil {
-		return nil, err
-	}
-
-	// early data key expansion
-	pair := &trafficKeyPair{}
-	pair.clientKey = trafficKey[:16]
-	pair.clientNonce = trafficKey[16:]
 
 	return pair, nil
 }

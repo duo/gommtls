@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"encoding/binary"
 	"encoding/hex"
+	"io"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -39,6 +40,10 @@ func (d *dataRecord) serialize() []byte {
 	return buf
 }
 
+func createAbortRecord(data []byte) *mmtlsRecord {
+	return createRecord(MagicAbort, data)
+}
+
 func createHandshakeRecord(data []byte) *mmtlsRecord {
 	return createRecord(MagicHandshake, data)
 }
@@ -52,6 +57,14 @@ func createDataRecord(dataType uint32, seq uint32, data []byte) *mmtlsRecord {
 	return createRecord(MagicRecord, r.serialize())
 }
 
+func createRawDataRecord(data []byte) *mmtlsRecord {
+	return createRecord(MagicRecord, data)
+}
+
+func createSystemRecord(data []byte) *mmtlsRecord {
+	return createRecord(MagicSystem, data)
+}
+
 func createRecord(recordType uint8, data []byte) *mmtlsRecord {
 	return &mmtlsRecord{
 		recordType: recordType,
@@ -61,16 +74,24 @@ func createRecord(recordType uint8, data []byte) *mmtlsRecord {
 	}
 }
 
-func readRecord(buf []byte) *mmtlsRecord {
+func readRecord(buf io.Reader) (*mmtlsRecord, error) {
 	r := &mmtlsRecord{}
 
-	r.recordType = buf[0]
-	r.version = binary.BigEndian.Uint16(buf[1:])
-	r.length = binary.BigEndian.Uint16(buf[3:])
+	if err := binary.Read(buf, binary.BigEndian, &r.recordType); err != nil {
+		return nil, err
+	}
+	if err := binary.Read(buf, binary.BigEndian, &r.version); err != nil {
+		return nil, err
+	}
+	if err := binary.Read(buf, binary.BigEndian, &r.length); err != nil {
+		return nil, err
+	}
 	r.data = make([]byte, r.length)
-	copy(r.data, buf[5:])
+	if _, err := buf.Read(r.data); err != nil {
+		return nil, err
+	}
 
-	return r
+	return r, nil
 }
 
 func (r *mmtlsRecord) serialize() []byte {
