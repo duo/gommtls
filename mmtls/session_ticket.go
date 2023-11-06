@@ -125,7 +125,7 @@ func (t *newSessionTicket) serialize() ([]byte, error) {
 	if err := buf.WriteByte(0x04); err != nil {
 		return nil, err
 	}
-	if err := buf.WriteByte(0x02); err != nil {
+	if err := buf.WriteByte(byte(len(t.tickets))); err != nil {
 		return nil, err
 	}
 

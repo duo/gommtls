@@ -70,7 +70,7 @@ func (c *MMTLSClient) Handshake(host string) error {
 	}
 
 	var ch *clientHello
-	if c.Session != nil {
+	if c.Session != nil && len(c.Session.tk.tickets) > 1 {
 		log.Info("1-RTT PSK handshake")
 		ch = newPskOneHello(&c.publicEcdh.PublicKey, &c.verifyEcdh.PublicKey, &c.Session.tk.tickets[1])
 	} else {
